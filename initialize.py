@@ -13,12 +13,13 @@ import sys
 import unicodedata
 from dotenv import load_dotenv
 import streamlit as st
-from docx import Document
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import constants as ct
+import pandas as pd
+from langchain.docstore.document import Document
 
 
 ############################################################
@@ -123,8 +124,8 @@ def initialize_retriever():
     
     # チャンク分割用のオブジェクトを作成
     text_splitter = CharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
+        chunk_size=ct.CHUNK_SIZE,
+        chunk_overlap=ct.CHUNK_OVERLAP,
         separator="\n"
     )
 
@@ -135,7 +136,7 @@ def initialize_retriever():
     db = Chroma.from_documents(splitted_docs, embedding=embeddings)
 
     # ベクターストアを検索するRetrieverの作成
-    st.session_state.retriever = db.as_retriever(search_kwargs={"k": 3})
+    st.session_state.retriever = db.as_retriever(search_kwargs={"k": ct.RETRIEVER_K})
 
 
 def initialize_session_state():
@@ -214,10 +215,23 @@ def file_load(path, docs_all):
 
     # 想定していたファイル形式の場合のみ読み込む
     if file_extension in ct.SUPPORTED_EXTENSIONS:
-        # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
-        loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
-        docs = loader.load()
-        docs_all.extend(docs)
+        if file_extension == ".csv":
+            try:
+                df = pd.read_csv(path, encoding="utf-8")
+                #各行をテキスト化して結合
+                combined_text = "\n".join([",".join(map(str, row)) for row in df.values])
+                # CSV全体を1ドキュメントに統合
+                doc = Document(page_content=combined_text, metadata={"source": path})
+                docs_all.append(doc)
+                print(f"Loaded (merged CSV) {path}")
+            except Exception as e:
+                print(f"Error loading CSV {path}: {e}")
+        else:
+            # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
+            loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
+            docs = loader.load()
+            docs_all.extend(docs)
+            print(f"Loaded {path}")
 
 
 def adjust_string(s):
