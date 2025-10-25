@@ -61,7 +61,7 @@ WEB_URL_LOAD_TARGETS = [
 # ==========================================
 # RAGチューニング系
 # ==========================================
-RETRIEVER_K = 10
+RETRIEVER_K = 5
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 50
 
